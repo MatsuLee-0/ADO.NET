@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
@@ -13,7 +14,7 @@ namespace _ExecutingCommands
     class program
     {
 
-        static void Main(string[] args)
+         static void Main(string[] args)//ExecutingCommands部分代码
         {
             ExecuteNonQuery();
             ExecuteReader();
@@ -72,14 +73,97 @@ namespace _ExecutingCommands
                     Console.WriteLine(data);
             } while (!string.IsNullOrEmpty(data));
             conn.Close();
+        }//ExecutingCommands部分代码
+
+        
+
+        public static void Main(string[] agrs)//StoreProcs部分代码
+        {
+            using (SqlConnection conn = new SqlConnection(GetDatabaseConnection()))
+            {
+                conn.Open();
+                InitialiseDatabase(conn);
+
+                SqlCommand updateCommand = GenerateUpdateCommand(conn);
+                SqlCommand deleteCommand = generateDeleteCommand(conn);
+                SqlCommand insertCommand = GenerateInsertCommand(conn);
+
+                DumpRegions(conn, "Regions prior to any stored procedure calls");
+
+                insertCommand.Parameters["@RegionDescription"].Value = "South West";
+                insertCommand.ExecuteNonQuery();
+                
+                int newRegionID = (int)insertCommand.Parameters["@RegionID"].Value;
+
+                DumpRegions(conn, "Regions after inserting'South West'");
+
+                updateCommand.Parameters[0].Value = newRegionID;
+                updateCommand.Parameters[1].Value = "South Western England";
+                updateCommand.ExecuteNonQuery();
+
+                DumpRegions(conn, "Regions after updating'South West'to'South Western England'");
+
+                deleteCommand.Parameters["@RegionID"].Value = newRegionID;
+                deleteCommand.ExecuteNonQuery();
+
+                DumpRegions(conn, "Regions after deleting'South Western England'");
+
+                conn.Close();
+
+            }
+        }
+
+        private static void InitialiseDatabase(SqlConnection conn)
+        {
+            SqlCommand cmd = new SqlCommand(StringSplitOptions.CreateSprocs, conn);
+            cmd.ExecuteNonQuery();
+        }
+
+        private static SqlCommand GenerateUpdateCommand(SqlConnection conn)
+        {
+            SqlCommand aCommand = new SqlCommand("RegionUpdate", conn);
+
+            aCommand.CommandType = CommandType.StoredProcedure;
+            aCommand.Parameters.Add(new SqlParameter("@RegionID", SqlDbType.Int, 0, "RegionID"));
+            aCommand.Parameters.Add(new SqlParameter("@RegionDescription", SqlDbType.NChar, 50, "RegionDescription"));
+            aCommand.UpdatedRowSource = UpdateRowSource.None;
+
+            return aCommand;
+        }
+
+        private static SqlCommand GenerateInsertCommand(SqlConnection conn)
+        {
+            SqlCommand aCommand = new SqlCommand("RegionInsert", conn);
+
+            aCommand.CommandType = CommandType.StoredProcedure;
+            aCommand.Parameters.Add(new SqlParameter("@RegionDescription", SqlDbType.NChar, 50, "RegionDescription"));
+            aCommand.Parameters.Add(new SqlParameter("@RegionID", SqlDbType.Int, 0, ParameterDirection.Output, false, 0, 0, "RegionID", DataRowVersion.Default, null));
+            aCommand.UpdatedRowSource = UpdateRowSource.OutputParameters;
+
+            return aCommand;
+        }
+
+        private static void DumpRegions(SqlConnection conn,string message)
+        {
+            SqlCommand aCommand = new SqlCommand("SELECT RegionID,RegionDescription From Region", conn);
+
+            SqlDataReader aReader = aCommand.ExecuteReader(CommandBehavior.KeyInfo);
+
+            Console.WriteLine(message);
+
+            while (aReader.Read())
+            {
+                Console.WriteLine("  {0,20} {1,-40}", aReader[0], aReader[1]);
+            }
+
+            aReader.Close();
         }
 
         static string GetDatabaseConnection()
         {
             return "server=(local),integrated security=SSPI,database=northwind";
 
-        }
-
+        }//StoreProcs部分代码
 
     }
 }
