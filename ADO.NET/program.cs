@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
+using System.Data.OleDb;
 
 namespace _ExecutingCommands
 {
@@ -14,12 +15,37 @@ namespace _ExecutingCommands
     class program
     {
 
-         static void Main(string[] args)//ExecutingCommands部分代码
+        static void Main(string[] args)//ExecutingCommands部分代码
         {
             ExecuteNonQuery();
             ExecuteReader();
             ExecuteScalar();
             ExecuteXmlReader();
+
+
+            string source = "Provide=SQLOLEDB;" + GetDatabaseConnection();//DataReaderOledb部分代码
+
+            string select = "SELECT ContactName,CompanyName FROM Customers";
+
+            OleDbConnection conn = new OleDbConnection(source);
+
+            conn.Open();
+
+            OleDbCommand cmd = new OleDbCommand(select, conn);
+
+            OleDbDataReader aReader = cmd.ExecuteReader();
+
+            while (aReader.Read())
+                Console.WriteLine("'{0}' from {1}", aReader.GetString(0), aReader.GetString(1));
+
+            aReader.Close();
+
+            conn.Close();//DataReaderOledb部分代码
+
+
+     
+
+            
         }
 
         static void ExecuteNonQuery()
@@ -75,8 +101,6 @@ namespace _ExecutingCommands
             conn.Close();
         }//ExecutingCommands部分代码
 
-        
-
         public static void Main(string[] agrs)//StoreProcs部分代码
         {
             using (SqlConnection conn = new SqlConnection(GetDatabaseConnection()))
@@ -85,14 +109,14 @@ namespace _ExecutingCommands
                 InitialiseDatabase(conn);
 
                 SqlCommand updateCommand = GenerateUpdateCommand(conn);
-                SqlCommand deleteCommand = generateDeleteCommand(conn);
+                SqlCommand deleteCommand = GenerateDeleteCommand(conn);
                 SqlCommand insertCommand = GenerateInsertCommand(conn);
 
                 DumpRegions(conn, "Regions prior to any stored procedure calls");
 
                 insertCommand.Parameters["@RegionDescription"].Value = "South West";
                 insertCommand.ExecuteNonQuery();
-                
+
                 int newRegionID = (int)insertCommand.Parameters["@RegionID"].Value;
 
                 DumpRegions(conn, "Regions after inserting'South West'");
@@ -115,7 +139,7 @@ namespace _ExecutingCommands
 
         private static void InitialiseDatabase(SqlConnection conn)
         {
-            SqlCommand cmd = new SqlCommand(StringSplitOptions.CreateSprocs, conn);
+            SqlCommand cmd = new SqlCommand(Strings.CreateSprocs, conn);
             cmd.ExecuteNonQuery();
         }
 
@@ -143,7 +167,18 @@ namespace _ExecutingCommands
             return aCommand;
         }
 
-        private static void DumpRegions(SqlConnection conn,string message)
+        private static SqlCommand GenerateDeleteCommand(SqlConnection conn)
+        {
+            SqlCommand aCommand = new SqlCommand("RegionDelete", conn);
+
+            aCommand.CommandType = CommandType.StoredProcedure;
+            aCommand.Parameters.Add(new SqlParameter("@RegionID", SqlDbType.Int, 0, "RegionID"));
+            aCommand.UpdatedRowSource = UpdateRowSource.None;
+
+            return aCommand;
+        }
+
+        private static void DumpRegions(SqlConnection conn, string message)
         {
             SqlCommand aCommand = new SqlCommand("SELECT RegionID,RegionDescription From Region", conn);
 
@@ -161,7 +196,7 @@ namespace _ExecutingCommands
 
         static string GetDatabaseConnection()
         {
-            return "server=(local),integrated security=SSPI,database=northwind";
+            return "server=(local),integrated security=SSPI,database=Northwind";
 
         }//StoreProcs部分代码
 
